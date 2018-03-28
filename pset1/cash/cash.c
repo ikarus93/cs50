@@ -1,4 +1,5 @@
-//Retrieves amount of coins needed to change users cash
+//Implement a program that calculates the minimum number of coins required to give a user change.
+
 
 #include <stdio.h>
 #include <cs50.h>
@@ -7,20 +8,20 @@
 
 int main(void)
 {
-    float change = get_float("Cash: ");
-
-    while (change < 0)
-        //verifying user input is non negative
+    float change;
+    do //verifying user input is non negative
     {
-        change = get_float("Cash ");
+        change = get_float("Cash: ");
     }
+    while (change < 0);
+
 
     int casted = round(change * 100);   //changing float to int
     int coins = 0;
 
     while (casted > 0)
     {
-        coins ++;
+        coins ++;          //increment coins returned
         if (casted >= 25)
         {
             casted -= 25;
@@ -38,5 +39,5 @@ int main(void)
             casted -= 1;
         }
     }
-    printf("%i\n", coins);
+    printf("%i\n", coins);         //return coins
 }

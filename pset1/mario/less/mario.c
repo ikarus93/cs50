@@ -1,16 +1,20 @@
+// Implement a program that prints out a half-pyramid of a specified height, per the below.
+
+
 #include <stdio.h>
 #include <cs50.h>
 
 int main(void)
 {
-    int height = get_int("Height: ");
-
-    while (height < 0 || height > 23)
+    int height;    //Container for user choice
+    do
     {
         height = get_int("Height: ");
     }
+    while (height < 0 || height > 23);
 
 
+    //Iterate over each row
     for (int i = 0; i < height; i++)
     {
         for (int w = 0; w < height - (i + 1); w++)

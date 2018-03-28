@@ -1,19 +1,26 @@
-#include <stdio.h>
+// Helper functions for music
+
 #include <cs50.h>
+
+#include "helpers.h"
+
 #include <math.h>
 
-int get_semitones(int final_octave, string keys, int direction, int i);
-int frequency(string note);
 
-int main(void)
-{
-    string s = get_string("");
-    frequency(s);
+
+// Converts a fraction formatted as X/Y to eighths
+int duration(string fraction)
+{   // TODO
+    int x = fraction[0] - '0';
+    int y = fraction[2] - '0';
+
+    return x * (8 / y);
 }
 
+//Prototype for frequency function
+int get_semitones(int final_octave, string keys, int direction, int i);
 
-
-
+// Calculates frequency (in Hz) of a note
 int frequency(string note)
 {
     // TODO
@@ -58,7 +65,7 @@ int frequency(string note)
     //second annoying edge case
     else if (octave == 4 && ((key == 'B' && accidental == 'b') || (key == 'A' && accidental == '#' )))
     {
-        semitones++;
+        semitones = 0;
     }
     else
     {
@@ -73,21 +80,33 @@ int frequency(string note)
     }   //end of else
 
     //adjusting semitones according to accidental
-    if (octave != 4)
+    if (accidental == '#')
     {
-        if (accidental == '#')
-        {
-            semitones++;
-        }
-        else if (accidental == 'b')
-        {
-            semitones--;
-        }
+        semitones++;
+    }
+    else if (accidental == 'b')
+    {
+        semitones--;
     }
 
-    float result = (pow(2, semitones/12.0) * 440.00);
+
+    float result = (pow(2, semitones/12.0) * 440.00);    //calculate frequency
     return round(result);
 
+}
+
+// Determines whether a string represents a rest
+bool is_rest(string s)
+{
+    // TODO
+    if (s[0] == '\0')
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }
 
 int get_semitones(int final_octave, string keys, int direction, int i)
