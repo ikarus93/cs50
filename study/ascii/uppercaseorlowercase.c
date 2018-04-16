@@ -1,3 +1,6 @@
+//Complete the following program that prompts the user to enter an alphabetical character
+//and determines whether the character is uppercase or lowercase.
+
 #include <stdio.h>
 #include <cs50.h>
 

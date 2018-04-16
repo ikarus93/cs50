@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    // remember filenames
+    // get filenames
     char *infile = argv[1];
     char *outfile = argv[2];
 
