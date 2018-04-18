@@ -113,7 +113,25 @@ def logout():
 @login_required
 def quote():
     """Get stock quote."""
-    return apology("TODO")
+    status_codes = {
+        "No stock symbol provided": 400,
+        "Couldn't get stock price": 404
+    }
+    try:
+        if request.method == "GET":
+            return render_template("quote.html")
+        if request.method == "POST":
+            sym = request.form.get("symbol")
+            if not sym:
+                raise Exception("No stock symbol provided")
+            result = lookup(sym)
+            if not result:
+                raise Exception("Couldn't get stock price")
+            return render_template("quoted.html", price = usd(result["price"]), symbol = result["symbol"])
+    except Exception as e:
+        return apology(str(e), status_codes[str(e)])
+
+
 
 
 @app.route("/register", methods=["GET", "POST"])
