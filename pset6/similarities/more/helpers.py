@@ -14,11 +14,48 @@ class Operation(Enum):
 
 def distances(a, b):
     """Calculate edit distance from a to b"""
+    from enum import Enum
+
+
+class Operation(Enum):
+    """Operations"""
+
+    DELETED = 1
+    INSERTED = 2
+    SUBSTITUTED = 3
+
+    def __str__(self):
+        return str(self.name.lower())
+
+
+def distances(a, b):
+    """Calculate edit distance from a to b"""
     matrix = []
     for i in range(len(a) + 1):
-        matrix.append([i])
-    for i in range(len(b) + 1):
-        matrix[0][i].append(i)
+      if i:
+        op = Operation(1)
+        matrix.append([(i, op)])
+      else:
+        matrix.append([(i, '')])
+    for i in range(1, len(b) + 1):
+        op = Operation(2)
+        matrix[0].append((i, op))
+
+
+
+    for i, char1 in enumerate(b):
+      i = i + 1
+      for j, char2 in enumerate(a):
+        j = j + 1
+        if char1 is not char2:
+          to_append = min(matrix[j][i - 1][0], matrix[j - 1][i - 1][0], matrix[j - 1][i][0]) + 1
+          op = Operation(2)
+        else:
+          to_append = matrix[j - 1][i - 1][0]
+          op = Operation(3)
+        matrix[j].append((to_append, op))
+
+
 
     # TODO
-    return [[]]
+    return matrix
