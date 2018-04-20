@@ -4,6 +4,7 @@ import urllib.request
 
 from flask import redirect, render_template, request, session
 from functools import wraps
+from time import gmtime, strftime
 
 
 def apology(message, code=400):
@@ -82,3 +83,14 @@ def lookup(symbol):
 def usd(value):
     """Format value as USD."""
     return f"${value:,.2f}"
+
+
+def get_timestamp():
+    """Return Timestamp for database"""
+    return strftime("%Y-%m-%d %H:%M:%S", gmtime())
+
+def update_position(db, shares, price, transaction_id):
+    """Updates open_positions table in finance.db, when stock is bought or sold"""
+    db.execute("UPDATE open_positions SET shares = :shares, price = :price WHERE id = :transaction_id", shares = shares, price = price, transaction_id = transaction_id)
+
+

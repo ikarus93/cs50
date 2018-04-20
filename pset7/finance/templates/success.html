@@ -1,0 +1,12 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Success
+{% endblock %}
+
+{% block main %}
+    <div class="stockquote">
+        <p>You've successfully {{ transaction.type }} <strong>{{ transaction.shares }}</strong> shares from <strong>{{ transaction.symbol }}</strong> for {{ transaction.price }} </p>
+    </div>
+
+{% endblock %}

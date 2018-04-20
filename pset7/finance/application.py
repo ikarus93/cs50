@@ -7,7 +7,8 @@ from tempfile import mkdtemp
 from werkzeug.exceptions import default_exceptions
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from helpers import apology, login_required, lookup, usd
+
+from helpers import apology, login_required, lookup, usd, update_position
 
 # Ensure environment variable is set
 if not os.environ.get("API_KEY"):
@@ -18,7 +19,6 @@ app = Flask(__name__)
 
 # Ensure templates are auto-reloaded
 app.config["TEMPLATES_AUTO_RELOAD"] = True
-
 # Ensure responses aren't cached
 @app.after_request
 def after_request(response):
@@ -38,20 +38,87 @@ Session(app)
 
 # Configure CS50 Library to use SQLite database
 db = SQL("sqlite:///finance.db")
-
+status_codes = {"One or more Input fields were empty": 400,
+                "Non positive integer provided": 400,
+                "Couldn't get stock price": 404,
+    "Insufficient Balance": 403
+}
 
 @app.route("/")
 @login_required
 def index():
     """Show portfolio of stocks"""
-    return apology("TODO")
+    if request.method == "GET":
+        try:
+            user = session["user_id"]
+            buys = db.execute("SELECT * from buy_history WHERE id = :user_id", user_id = user)
+            sells = db.execute("SELECT * from sell_histoy WHERE id = :userid", user_id = user)
+        except:
+            pass
+        return apology("TEST")
+    else:
+        return apology("Wrong Method")
 
 
 @app.route("/buy", methods=["GET", "POST"])
 @login_required
 def buy():
     """Buy shares of stock"""
-    return apology("TODO")
+    if request.method == "GET":
+        return render_template("buy.html")
+    else:
+        try:
+            sym = request.form.get("symbol")
+            shares = request.form.get("shares")
+            if not sym or not shares:
+                #If input from has empty fields
+                raise Exception("One or more Input fields were empty")
+            shares = int(shares)
+            if shares <= 0:
+                #if non negative value was provided
+                raise Exception("Non positive integer provided.")
+
+            #lookup stock price
+            price = lookup(sym)["price"]
+            #retrieve current users id
+            user_id = session["user_id"]
+
+            #calculate total price of transaction and check if user has valid credit
+            total_price = price * shares
+            user_credit = db.execute("SELECT cash FROM users WHERE id = :user_id", user_id = user_id)[0]["cash"]
+            if (user_credit - total_price) < 0:
+                raise Exception("Insufficient Balance")
+
+            #update users balance and add transaction to buy history table
+            new_balance = usd(user_credit - total_price)
+            db.execute("INSERT INTO buy_history(id, user_id, symbol, price, shares) VALUES (NULL, :user_id, :symbol, :price, :shares)", user_id = user_id, symbol = sym, price = price, shares = shares)
+            db.execute("UPDATE users SET cash = :new_balance WHERE id = :user_id", new_balance = new_balance, user_id = user_id)
+
+            # check if user already has open positions for stock symbol,
+            #if yes - increase amount else add new entry to open_positions table
+            user_position = db.execute("SELECT id, shares FROM open_positions WHERE symbol = :symbol AND user_id = :user_id", symbol = sym, user_id = user_id)
+            if user_position:
+                user_position = user_position[0]
+                new_total = shares + user_position["shares"]
+                update_position(db, new_total, price, user_position["id"])
+            else:
+                db.execute("INSERT INTO open_positions(id, user_id, symbol, price, shares) VALUES (NULL, :user_id, :symbol, :price, :shares)", user_id = user_id, symbol = sym, price = price, shares = shares)
+            #create transaction object for template rendering
+            transaction = {
+                "type": "bought",
+                "symbol": sym,
+                "shares": shares,
+                "price": price,
+                "new_balance": new_balance
+            }
+
+            return render_template("success.html", transaction = transaction)
+        except Exception as e:
+            if str(e) in status_codes:
+                #return exception name and status code if status code for given exception is in status_code dictionary defined at beginning of file
+                return apology(str(e), status_codes[str(e)])
+            else:
+                return apology(str(e))
 
 
 @app.route("/history")
@@ -113,10 +180,7 @@ def logout():
 @login_required
 def quote():
     """Get stock quote."""
-    status_codes = {
-        "No stock symbol provided": 400,
-        "Couldn't get stock price": 404
-    }
+
     try:
         if request.method == "GET":
             return render_template("quote.html")
@@ -129,7 +193,10 @@ def quote():
                 raise Exception("Couldn't get stock price")
             return render_template("quoted.html", price = usd(result["price"]), symbol = result["symbol"])
     except Exception as e:
-        return apology(str(e), status_codes[str(e)])
+        if str(e) in status_codes:
+            return apology(str(e), status_codes[str(e)])
+        else:
+            return apology(str(e))
 
 
 
@@ -146,16 +213,20 @@ def register():
         if not user or not pw:
             return apology("Username or Password field empty")
 
+        #check if username is already in db
         user_exists = db.execute("SELECT * from users WHERE username = :username", username = user)
         if user_exists:
             return apology("Username already exists")
-
+        #if password field or password confirmation is empty or doesnt match
         if not pw or not request.form.get("passwordConf") or pw != request.form.get("passwordConf"):
             return apology("Password field empty or Passwords don't match")
 
+        #hash pw and extract user_id as length from table, then create session with it
         hashed_pw = generate_password_hash(pw)
         user_id = len(db.execute("SELECT * from users"))
+        session["user_id"] = user_id
         try:
+            #insert new user into db
             db.execute("INSERT into users (id, username, hash) VALUES (:user_id, :username, :pw)", user_id = user_id, username = user, pw = hashed_pw)
         except:
             return apology("Database Error", 500)
@@ -169,6 +240,8 @@ def register():
 @login_required
 def sell():
     """Sell shares of stock"""
+    if request.method == "GET":
+        return render_template("sell.html")
     return apology("TODO")
 
 
