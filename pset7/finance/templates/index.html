@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Portfolio
+{% endblock %}
+
+{% block main %}
+    <div class="output-table">
+        <table class="table table-striped">
+            <thead>
+                <tr class="t-headers">
+                    <th>Symbol</th>
+                    <th>Shares</th>
+                    <th>Price</th>
+                    <th>Total</th>
+                </tr>
+        </thead>
+        <tbody>
+        {% for row in positions %}
+            <tr>
+                <th>{{ row.symbol }}</th>
+                <th>{{ row.shares }}</th>
+                <th>{{ row.price }}</th>
+                <th>{{ row.total }}</th>
+            </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot>
+               <tr>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th>{{ total_balance }}</th>
+        </tr>
+        </tfoot>
+
+        </table>
+
+
+    </div>
+
+{% endblock %}

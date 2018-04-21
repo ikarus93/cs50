@@ -1,8 +1,15 @@
 <!-- TODO -->
-{% extends layout.html %}
 
-{% block body %}
 <table>
+    <h1>{{ s1 }}</h1>
+    {% for i in range(0, s1|length + 3) %}
+    <tr>
+        {% if i < 3 %}
+            <th></th>
+        {% else %}
+            <th>{{ s1[i] }}</th>
+        {% endif %}
+
 
 </table>
-{% endblock %}
+    {% endfor %}

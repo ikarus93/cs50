@@ -31,6 +31,7 @@ class Operation(Enum):
 def distances(a, b):
     """Calculate edit distance from a to b"""
     matrix = []
+    #create base cases for matrix
     for i in range(len(a) + 1):
       if i:
         op = Operation(1)
@@ -42,7 +43,9 @@ def distances(a, b):
         matrix[0].append((i, op))
 
 
-
+    #iterate over each letter in target string, compare letter to character in base string,
+    #if characters dont match find the minimum of 3 neighbors (according to algorithm) and add 1, else take neighbor from top left corners value
+    #create tuple and append it to matrix
     for i, char1 in enumerate(b):
       i = i + 1
       for j, char2 in enumerate(a):

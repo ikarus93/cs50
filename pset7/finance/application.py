@@ -50,12 +50,48 @@ def index():
     """Show portfolio of stocks"""
     if request.method == "GET":
         try:
+
+            #retrieve logged in users open positions based on user id
             user = session["user_id"]
-            buys = db.execute("SELECT * from buy_history WHERE id = :user_id", user_id = user)
-            sells = db.execute("SELECT * from sell_histoy WHERE id = :userid", user_id = user)
-        except:
-            pass
-        return apology("TEST")
+            open_positions = db.execute("SELECT * from open_positions WHERE user_id = :user_id", user_id = user)
+            print(open_positions)
+            profit = 0
+            current_positions = []
+
+            if open_positions:
+                #retrieve current prices for each open position then save it in dictionary
+                for row in open_positions:
+                    latest_price = lookup(row["symbol"])["price"]
+                    total = latest_price * int(row["shares"])
+                    profit += total
+                    position = {
+                        "symbol": row["symbol"],
+                        "shares": row["shares"],
+                        "price": latest_price,
+                        "total": usd(total)
+                    }
+                    current_positions.append(position)
+
+            #retrieve current users balance
+            balance = db.execute("SELECT cash from users WHERE id = :user_id", user_id = user)[0]["cash"]
+            total_balance = float(balance[1:].replace(",", "")) + profit
+
+            #append total cash row for template
+            current_positions.append(
+                {
+                "symbol": "CASH",
+                "shares": "",
+                "price": "",
+                "total": balance
+            })
+            return render_template("index.html", positions = current_positions, total_balance = usd(total_balance))
+
+        except Exception as e:
+            if str(e) in status_codes:
+                return apology(str(e), status_codes[str(e)])
+            else:
+                return apology(str(e))
+
     else:
         return apology("Wrong Method")
 
@@ -66,8 +102,10 @@ def buy():
     """Buy shares of stock"""
     if request.method == "GET":
         return render_template("buy.html")
+
     else:
         try:
+
             sym = request.form.get("symbol")
             shares = request.form.get("shares")
             if not sym or not shares:
@@ -85,7 +123,7 @@ def buy():
 
             #calculate total price of transaction and check if user has valid credit
             total_price = price * shares
-            user_credit = db.execute("SELECT cash FROM users WHERE id = :user_id", user_id = user_id)[0]["cash"]
+            user_credit = float(db.execute("SELECT cash FROM users WHERE id = :user_id", user_id = user_id)[0]["cash"][1:].replace(",", ""))
             if (user_credit - total_price) < 0:
                 raise Exception("Insufficient Balance")
 
@@ -101,6 +139,7 @@ def buy():
                 user_position = user_position[0]
                 new_total = shares + user_position["shares"]
                 update_position(db, new_total, price, user_position["id"])
+
             else:
                 db.execute("INSERT INTO open_positions(id, user_id, symbol, price, shares) VALUES (NULL, :user_id, :symbol, :price, :shares)", user_id = user_id, symbol = sym, price = price, shares = shares)
             #create transaction object for template rendering
@@ -113,6 +152,7 @@ def buy():
             }
 
             return render_template("success.html", transaction = transaction)
+
         except Exception as e:
             if str(e) in status_codes:
                 #return exception name and status code if status code for given exception is in status_code dictionary defined at beginning of file
@@ -242,7 +282,46 @@ def sell():
     """Sell shares of stock"""
     if request.method == "GET":
         return render_template("sell.html")
-    return apology("TODO")
+
+    elif request.method == "POST":
+        try:
+            symbol = request.form.get("symbol")
+            shares = int(request.form.get("shares"))
+            user = session["user_id"]
+            #shares a user currently holds
+            position = db.execute("SELECT id, shares from open_positions WHERE user_id = :user_id AND symbol = :symbol", user_id = user, symbol = symbol)[0]
+
+            user_holds = int(position["shares"])
+            difference = user_holds - shares
+            if difference < 0:
+                raise Exception("Insufficient shares owned")
+            elif difference == 0:
+                db.execute("DELETE from open_positions WHERE id = :position_id", position_id = position["id"])
+            else:
+                db.execute("UPDATE open_positions SET shares = :difference WHERE id = :position_id", difference = difference, position_id = position["id"])
+
+
+            price = int(lookup(symbol)["price"])
+            profit = price * shares
+
+            #select users balance, reformat deleting dollar sign and commas
+            user_balance = db.execute("SELECT cash from users WHERE id = :user_id", user_id = user)[0]["cash"][1:].replace(",", "")
+            new_balance = float(user_balance) + profit
+            db.execute("UPDATE users SET cash = :new_balance WHERE id = :user_id", new_balance = usd(new_balance), user_id = user)
+            transaction = {
+                "type": "sold",
+                "shares": shares,
+                "symbol": symbol,
+                "price":  price
+            }
+            return render_template("success.html", transaction = transaction)
+        except Exception as e:
+            if str(e) in status_codes:
+                return apology(str(e), status_codes[str(e)])
+            else:
+                return apology(str(e))
+    else:
+        return apology("Wrong method")
 
 
 def errorhandler(e):
