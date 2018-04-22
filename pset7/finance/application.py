@@ -61,7 +61,12 @@ def index():
             if open_positions:
                 #retrieve current prices for each open position then save it in dictionary
                 for row in open_positions:
-                    latest_price = lookup(row["symbol"])["price"]
+                    print(row)
+                    latest_price = lookup(row["symbol"])
+                    if not latest_price:
+                        raise Exception("Error retrieving stockprice")
+                    else:
+                        latest_price = latest_price["price"]
                     total = latest_price * int(row["shares"])
                     profit += total
                     position = {
@@ -71,11 +76,9 @@ def index():
                         "total": usd(total)
                     }
                     current_positions.append(position)
-
             #retrieve current users balance
             balance = db.execute("SELECT cash from users WHERE id = :user_id", user_id = user)[0]["cash"]
             total_balance = float(balance[1:].replace(",", "")) + profit
-
             #append total cash row for template
             current_positions.append(
                 {
@@ -107,17 +110,20 @@ def buy():
         try:
 
             sym = request.form.get("symbol")
-            shares = request.form.get("shares")
+            shares = int(request.form.get("shares"))
             if not sym or not shares:
                 #If input from has empty fields
                 raise Exception("One or more Input fields were empty")
-            shares = int(shares)
             if shares <= 0:
                 #if non negative value was provided
                 raise Exception("Non positive integer provided.")
 
             #lookup stock price
-            price = lookup(sym)["price"]
+            price = lookup(sym)
+            if not price:
+                raise Exception("Couldnt lookup stock price")
+            else:
+                price = price["price"]
             #retrieve current users id
             user_id = session["user_id"]
 
@@ -129,7 +135,6 @@ def buy():
 
             #update users balance and add transaction to buy history table
             new_balance = usd(user_credit - total_price)
-            db.execute("INSERT INTO buy_history(id, user_id, symbol, price, shares) VALUES (NULL, :user_id, :symbol, :price, :shares)", user_id = user_id, symbol = sym, price = price, shares = shares)
             db.execute("UPDATE users SET cash = :new_balance WHERE id = :user_id", new_balance = new_balance, user_id = user_id)
 
             # check if user already has open positions for stock symbol,
@@ -150,7 +155,7 @@ def buy():
                 "price": price,
                 "new_balance": new_balance
             }
-
+            db.execute("INSERT INTO transaction_history(id, user_id, symbol, price, shares, type) VALUES (NULL, :user_id, :symbol, :price, :shares, :_type)", user_id = user_id, symbol = sym, price = price, shares = shares, _type = "buy")
             return render_template("success.html", transaction = transaction)
 
         except Exception as e:
@@ -165,7 +170,29 @@ def buy():
 @login_required
 def history():
     """Show history of transactions"""
-    return apology("TODO")
+    if request.method == "GET":
+        try:
+            user = session["user_id"]
+            transactions = db.execute("SELECT * from transaction_history WHERE user_id = :user_id", user_id = user)
+            positions = []
+            for row in transactions:
+                temp = {
+                    "type": row["type"],
+                    "symbol": row["symbol"],
+                    "shares": row["shares"],
+                    "price": usd(row["price"]),
+                    "datetime": row["timestamp"]
+                }
+                positions.append(temp)
+            return render_template("history.html", positions = positions)
+        except Exception as e:
+            if str(e) in status_codes:
+                return apology(str(e), status_codes[str(e)])
+            else:
+                return apology(str(e))
+    else:
+
+        return apology("Only accept GET requests")
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -289,7 +316,10 @@ def sell():
             shares = int(request.form.get("shares"))
             user = session["user_id"]
             #shares a user currently holds
+
             position = db.execute("SELECT id, shares from open_positions WHERE user_id = :user_id AND symbol = :symbol", user_id = user, symbol = symbol)[0]
+            if not position:
+                raise Exception("You don't own any shares from this stock")
 
             user_holds = int(position["shares"])
             difference = user_holds - shares
@@ -314,6 +344,7 @@ def sell():
                 "symbol": symbol,
                 "price":  price
             }
+            db.execute("INSERT INTO transaction_history(id, user_id, symbol, price, shares, type) VALUES (NULL, :user_id, :symbol, :price, :shares, :_type)", user_id = user, symbol = symbol, price = price, shares = shares, _type = "sell")
             return render_template("success.html", transaction = transaction)
         except Exception as e:
             if str(e) in status_codes:

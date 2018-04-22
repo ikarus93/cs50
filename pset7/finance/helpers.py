@@ -93,4 +93,3 @@ def update_position(db, shares, price, transaction_id):
     """Updates open_positions table in finance.db, when stock is bought or sold"""
     db.execute("UPDATE open_positions SET shares = :shares, price = :price WHERE id = :transaction_id", shares = shares, price = price, transaction_id = transaction_id)
 
-

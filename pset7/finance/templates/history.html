@@ -1,0 +1,36 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Transaction History
+{% endblock %}
+
+{% block main %}
+    <div class="output-table">
+        <table class="table table-striped">
+            <thead>
+                <tr class="t-headers">
+                    <th>Type</th>
+                    <th>Symbol</th>
+                    <th>Shares</th>
+                    <th>Price</th>
+                    <th>Date and Time</th>
+                </tr>
+        </thead>
+        <tbody>
+        {% for row in positions %}
+            <tr>
+                <th>{{ row.type }}</th>
+                <th>{{ row.symbol }}</th>
+                <th>{{ row.shares }}</th>
+                <th>{{ row.price }}</th>
+                <th>{{ row.datetime }}</th>
+            </tr>
+        {% endfor %}
+        </tbody>
+
+        </table>
+
+
+    </div>
+
+{% endblock %}
