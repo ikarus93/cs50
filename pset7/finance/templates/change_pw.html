@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Change your password
+{% endblock %}
+
+{% block main %}
+{% if change_occured %}
+{% if success %}
+<div class="success">
+    <span>Password successfully changed</span>
+</div>
+{% else %}
+<div class="failure">
+    <span>Could not change Password</span>
+</div>
+{% endif %}
+{% endif %}
+    <form action="/changepw" method="post">
+        <div class="form-group">
+            <input autocomplete="off" autofocus class="form-control" name="password" placeholder="Old Password" type="password"/>
+        </div>
+        <div class="form-group">
+            <input class="form-control" name="new-password" placeholder="New Password" type="password"/>
+        </div>
+        <button class="btn btn-primary" type="submit">Change</button>
+    </form>
+{% endblock %}

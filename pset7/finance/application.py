@@ -41,7 +41,8 @@ db = SQL("sqlite:///finance.db")
 status_codes = {"One or more Input fields were empty": 400,
                 "Non positive integer provided": 400,
                 "Couldn't get stock price": 404,
-    "Insufficient Balance": 403
+    "Insufficient Balance": 403,
+    "Wrong Password": 401
 }
 
 @app.route("/")
@@ -54,14 +55,12 @@ def index():
             #retrieve logged in users open positions based on user id
             user = session["user_id"]
             open_positions = db.execute("SELECT * from open_positions WHERE user_id = :user_id", user_id = user)
-            print(open_positions)
             profit = 0
             current_positions = []
 
             if open_positions:
                 #retrieve current prices for each open position then save it in dictionary
                 for row in open_positions:
-                    print(row)
                     latest_price = lookup(row["symbol"])
                     if not latest_price:
                         raise Exception("Error retrieving stockprice")
@@ -231,6 +230,59 @@ def login():
     else:
         return render_template("login.html")
 
+@app.route("/user", methods=["GET"])
+@login_required
+def user():
+    """Renders view containing user specific menu, like links to change password, input more cash, """
+    return render_template("user.html")
+
+@app.route("/addcash", methods=["GET", "POST"])
+@login_required
+def add_cash():
+    if request.method == "GET":
+        return render_template("addcash.html", initial_render = True)
+    elif request.method == "POST":
+        try:
+            card_number = request.form.get("card")
+            credit_to_add = float(request.form.get("amount"))
+            current_balance = float(db.execute("SELECT cash from users WHERE id = :user_id", user_id = session["user_id"])[0]["cash"][1:].replace(",", ""))
+            db.execute("UPDATE users SET cash = :new_balance WHERE id = :user_id", new_balance = usd(credit_to_add + current_balance), user_id = session["user_id"])
+            return render_template("addcash.html", initial_render = False, success = True, balance = usd(credit_to_add + current_balance))
+        except Exception as e:
+            if str(e) in status_codes:
+                return apology(str(e), status_codes[str(e)])
+            else:
+                return apology(str(e))
+    else:
+        return apology("Wrong Method")
+
+@app.route("/changepw", methods=["GET", "POST"])
+@login_required
+def change_pw():
+    """Changes user password """
+    if request.method == "GET":
+        return render_template("change_pw.html", change_occured = False, success = False)
+    elif request.method == "POST":
+        try:
+            user = session["user_id"]
+            new_password = request.form.get("new-password")
+            real_password = db.execute("SELECT hash from users WHERE id = :user_id", user_id = user)[0]["hash"]
+
+            #verify user is user by cross comparing his put in password
+            if not check_password_hash(real_password, request.form.get("password")):
+                return render_template("change_pw.html", change_occured = True, success = False)
+
+            new_password = generate_password_hash(new_password)
+            db.execute("UPDATE users SET hash = :new_pw WHERE id = :user_id", new_pw = new_password, user_id = user)
+            print("still here")
+            return render_template("change_pw.html", change_occured = True, success = True)
+        except Exception as e:
+            if str(e) in status_codes:
+                return apology(str(e), status_codes[str(e)])
+            else:
+                return apology(str(e))
+    else:
+        return apology("Invalid method used")
 
 @app.route("/logout")
 def logout():
@@ -285,7 +337,7 @@ def register():
         if user_exists:
             return apology("Username already exists")
         #if password field or password confirmation is empty or doesnt match
-        if not pw or not request.form.get("passwordConf") or pw != request.form.get("passwordConf"):
+        if not pw or not request.form.get("confirmation") or pw != request.form.get("confirmation"):
             return apology("Password field empty or Passwords don't match")
 
         #hash pw and extract user_id as length from table, then create session with it
