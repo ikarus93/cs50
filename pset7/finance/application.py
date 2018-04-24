@@ -1,5 +1,5 @@
 import os
-
+import re
 from cs50 import SQL
 from flask import Flask, flash, redirect, render_template, request, session
 from flask_session import Session
@@ -77,7 +77,7 @@ def index():
                     current_positions.append(position)
             #retrieve current users balance
             balance = db.execute("SELECT cash from users WHERE id = :user_id", user_id = user)[0]["cash"]
-            total_balance = float(balance[1:].replace(",", "")) + profit
+            total_balance = float(balance) + profit
             #append total cash row for template
             current_positions.append(
                 {
@@ -128,12 +128,12 @@ def buy():
 
             #calculate total price of transaction and check if user has valid credit
             total_price = price * shares
-            user_credit = float(db.execute("SELECT cash FROM users WHERE id = :user_id", user_id = user_id)[0]["cash"][1:].replace(",", ""))
+            user_credit = float(db.execute("SELECT cash FROM users WHERE id = :user_id", user_id = user_id)[0]["cash"])
             if (user_credit - total_price) < 0:
                 raise Exception("Insufficient Balance")
 
             #update users balance and add transaction to buy history table
-            new_balance = usd(user_credit - total_price)
+            new_balance = user_credit - total_price
             db.execute("UPDATE users SET cash = :new_balance WHERE id = :user_id", new_balance = new_balance, user_id = user_id)
 
             # check if user already has open positions for stock symbol,
@@ -152,7 +152,7 @@ def buy():
                 "symbol": sym,
                 "shares": shares,
                 "price": price,
-                "new_balance": new_balance
+                "new_balance": usd(new_balance)
             }
             db.execute("INSERT INTO transaction_history(id, user_id, symbol, price, shares, type) VALUES (NULL, :user_id, :symbol, :price, :shares, :_type)", user_id = user_id, symbol = sym, price = price, shares = shares, _type = "buy")
             return render_template("success.html", transaction = transaction)
@@ -244,9 +244,13 @@ def add_cash():
     elif request.method == "POST":
         try:
             card_number = request.form.get("card")
-            credit_to_add = float(request.form.get("amount"))
-            current_balance = float(db.execute("SELECT cash from users WHERE id = :user_id", user_id = session["user_id"])[0]["cash"][1:].replace(",", ""))
-            db.execute("UPDATE users SET cash = :new_balance WHERE id = :user_id", new_balance = usd(credit_to_add + current_balance), user_id = session["user_id"])
+            try:
+                credit_to_add = float(request.form.get("amount"))
+            except:
+                return apology("Please provide a numeric value")
+            current_balance = db.execute("SELECT cash from users WHERE id = :user_id", user_id = session["user_id"])[0]["cash"]
+            current_balance = float(current_balance)
+            db.execute("UPDATE users SET cash = :new_balance WHERE id = :user_id", new_balance = credit_to_add + current_balance, user_id = session["user_id"])
             return render_template("addcash.html", initial_render = False, success = True, balance = usd(credit_to_add + current_balance))
         except Exception as e:
             if str(e) in status_codes:
@@ -329,6 +333,9 @@ def register():
     elif request.method == "POST":
         user = request.form.get("username")
         pw = request.form.get("password")
+
+        if not re.search('\d.*[A-Za-z]|[A-Za-z].*\d', pw):
+            return apology("Password must contain at least one letter and one number")
         if not user or not pw:
             return apology("Username or Password field empty")
 
@@ -387,9 +394,9 @@ def sell():
             profit = price * shares
 
             #select users balance, reformat deleting dollar sign and commas
-            user_balance = db.execute("SELECT cash from users WHERE id = :user_id", user_id = user)[0]["cash"][1:].replace(",", "")
+            user_balance = db.execute("SELECT cash from users WHERE id = :user_id", user_id = user)[0]["cash"]
             new_balance = float(user_balance) + profit
-            db.execute("UPDATE users SET cash = :new_balance WHERE id = :user_id", new_balance = usd(new_balance), user_id = user)
+            db.execute("UPDATE users SET cash = :new_balance WHERE id = :user_id", new_balance = new_balance, user_id = user)
             transaction = {
                 "type": "sold",
                 "shares": shares,
